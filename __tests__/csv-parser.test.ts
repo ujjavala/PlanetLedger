@@ -1,18 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { parseTransactionsCsv } from "@/lib/transactions/csv-parser";
-import * as fs from "fs";
-import * as path from "path";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function loadSample(filename: string): string {
-  return fs.readFileSync(path.resolve(__dirname, `../${filename}`), "utf-8");
-}
+import { SAMPLE_CSV } from "@/lib/demo/sample-data";
 
 // ── AU format ─────────────────────────────────────────────────────────────────
 
 describe("AU transaction summary CSV", () => {
-  const csv = loadSample("sample-transactions.csv");
+  const csv = SAMPLE_CSV;
   let txns: ReturnType<typeof parseTransactionsCsv>;
 
   it("parses without throwing", () => {
