@@ -103,7 +103,7 @@ export function DashboardShell({ email }: DashboardShellProps) {
               <div>
                 <div className="mb-1 flex items-center gap-2">
                   <span className="text-xl">🌍</span>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">PlanetLedger</p>
+                  <a href="/" className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300 hover:text-white transition">PlanetLedger</a>
                 </div>
                 {email ? (
                   <>

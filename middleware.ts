@@ -7,5 +7,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)"]
+  matcher: [
+    // Exclude static assets, public files, the demo page, and the anonymous preview API
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|demo|api/upload/preview).*)"]
 };

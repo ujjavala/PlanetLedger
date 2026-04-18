@@ -6,13 +6,15 @@ function TopNav() {
     <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur border-b border-slate-200">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="PlanetLedger Logo" className="h-12 w-12 rounded-full shadow-md" />
-          <span className="ml-2 text-lg font-bold text-slate-900 tracking-tight">PlanetLedger</span>
+          <a href="/" className="flex items-center gap-2">
+            <img src="/logo.png" alt="PlanetLedger Logo" className="h-12 w-12 rounded-full shadow-md" />
+            <span className="ml-2 text-lg font-bold text-slate-900 tracking-tight">PlanetLedger</span>
+          </a>
         </div>
         <nav className="hidden md:flex gap-8 text-sm font-semibold items-center">
           <a href="#features" className="px-3 py-1 rounded transition text-slate-800 hover:text-white hover:bg-brand-600 focus:bg-brand-700 focus:text-white">Features</a>
           <a href="#how" className="px-3 py-1 rounded transition text-slate-800 hover:text-white hover:bg-brand-600 focus:bg-brand-700 focus:text-white">How it works</a>
-          <a href="/dashboard" className="rounded-lg bg-brand-600 px-4 py-1.5 text-white transition hover:bg-brand-700">Dashboard →</a>
+          <a href="/demo" className="px-3 py-1 rounded transition text-slate-800 hover:text-white hover:bg-brand-600 focus:bg-brand-700 focus:text-white">Demo</a>
           <LoginButton />
         </nav>
       </div>
@@ -45,6 +47,12 @@ function HeroSection() {
           className="rounded-xl bg-brand-600 px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-brand-700"
         >
           Try it out →
+        </a>
+        <a
+          href="/demo"
+          className="rounded-xl border border-emerald-300 bg-emerald-50 px-6 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+        >
+          ▶ See demo
         </a>
         <a
           href="#how"
@@ -100,8 +108,10 @@ export default function HomePage() {
       <footer className="mt-24 border-t border-slate-200 py-8 bg-white">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between px-6">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
-            <img src="/logo.png" alt="PlanetLedger Logo" className="h-10 w-10 rounded-full shadow-md" />
-            <span className="ml-2 text-lg font-bold text-slate-900 tracking-tight">PlanetLedger</span>
+            <a href="/" className="flex items-center gap-2">
+              <img src="/logo.png" alt="PlanetLedger Logo" className="h-10 w-10 rounded-full shadow-md" />
+              <span className="ml-2 text-lg font-bold text-slate-900 tracking-tight">PlanetLedger</span>
+            </a>
           </div>
           <div className="flex gap-6 text-sm text-slate-600 items-center">
             <a href="#features" className="px-2 py-1 rounded transition text-slate-700 hover:text-white hover:bg-brand-600">Features</a>

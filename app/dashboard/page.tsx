@@ -5,8 +5,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 export default async function DashboardPage() {
   const session = await auth0.getSession();
   if (!session) {
-    redirect("/auth/login");
+    redirect("/auth/login?returnTo=/dashboard");
   }
-
   return <DashboardShell email={session.user.email ?? undefined} />;
 }

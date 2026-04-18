@@ -125,6 +125,7 @@ export async function POST(request: Request) {
       count: transactions.length,
       score,
       breakdown,
+      transactions,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to process file";

@@ -13,7 +13,7 @@ export function Sidebar({ email }: Readonly<{ email?: string }>) {
   return (
     <aside className="soft-grid hidden w-72 shrink-0 flex-col rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-card lg:flex">
       <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">PlanetLedger</p>
+        <a href="/" className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 hover:text-brand-600 transition">PlanetLedger</a>
         <h1 className="mt-2 text-2xl font-bold text-slate-900">Sustainability Finance Agent</h1>
       </div>
 
