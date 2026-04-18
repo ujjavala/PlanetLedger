@@ -1,5 +1,4 @@
-import * as fs from "fs";
-import * as path from "path";
+import { SAMPLE_CSV } from "@/lib/demo/sample-data";
 import { parseTransactionsCsv } from "@/lib/transactions/csv-parser";
 import { calculateImpactScore } from "@/lib/agent/scoring-engine";
 import { SummaryCards } from "@/components/summary-cards";
@@ -9,12 +8,7 @@ import { LockedPanelsRow } from "./locked-panels";
 import type { InsightPayload } from "@/lib/types";
 
 export default function DemoPage() {
-  // Load and parse sample data at request time — no HTTP round-trips, bypasses middleware
-  const csvText = fs.readFileSync(
-    path.join(process.cwd(), "sample-transactions.csv"),
-    "utf-8"
-  );
-  const transactions = parseTransactionsCsv(csvText);
+  const transactions = parseTransactionsCsv(SAMPLE_CSV);
   const score = calculateImpactScore(transactions, {
     userId: "demo",
     scopes: [],
