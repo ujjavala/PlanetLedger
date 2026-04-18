@@ -1,0 +1,137 @@
+flowchart TD
+    subgraph USER["User Layer"]
+        User["🧑 User (Browser)"]
+        LandingPage["🏠 Landing Page\nHero | Features | How It Works\nTry Sample Data CTA | Download CSV"]
+        UploadUI["📂 Upload Panel\nCSV + PDF · AU format\nDrag & Drop + Format hints"]
+    end
+
+    subgraph AUTH["Auth & Identity"]
+        Auth0["🔐 Auth0\n(Identity, Scopes & Memory Boundary)"]
+        AuthScope["Agent Scope Enforcer\nread:transactions | write:insights\nupdate:score | read:behavior_patterns\nwrite:agent_memory"]
+    end
+
+    subgraph INGEST["Data Ingestion"]
+        UploadAPI["POST /api/upload\n(Auth required · persists to store)"]
+        PreviewAPI["POST /api/upload/preview\n(Anonymous · no persistence\nRules-only · Try Sample Data)"]
+        PDFParse["AU PDF Parser\n(pdf-parse)\nDD Mon YYYY date pattern\nDebit/Credit extraction"]
+        CSVParse["CSV Parser\n(papaparse)\nDate | Transaction | Debit | Credit | Balance\nAU bank statement format"]
+        RuleClassify["Rule Classifier\nAU Vendor regex matching\nWoolworths | Coles | TransportForNSW\nChemist Warehouse | Didi | Puma…"]
+        AICategorize["AI Reclassifier\n(OpenAI gpt-4o-mini / Gemini fallback)\nReclassifies 'Other' merchants\nFire-and-forget · key optional"]
+        CategoryEngine["Categorization Engine\nFast Fashion | Grocery | Food Delivery\nHygiene | Transport | Electronics | Other\nimpact: RED | YELLOW | GREEN"]
+    end
+
+    subgraph STORE["In-Memory Store"]
+        UserStore["User Memory Store\n(keyed by Auth0 sub)\nTransactions | Score | Chat History\nMemory Timeline | Insight Cache"]
+    end
+
+    subgraph PIPELINE["Agent Pipeline"]
+        RuleEngine["Rule Engine\nclassifyAndScore()"]
+        ScoringEngine["Scoring Engine\ncalculateImpactScore()\nimpactScore | highImpactCount | weeklyTrend"]
+        PatternEngine["Pattern Engine\ndetectPatterns()\nweekendSpendingSpike | fastFashionBurst\ncategoryConcentration | weekdayWeekendImbalance"]
+        InsightGen["Insight Generator\ngenerateAgentInsights()\n⚠️ WARNING | ✅ POSITIVE | ℹ️ NEUTRAL"]
+        AgentMemory["Agent Memory\ngetAgentMemory() | updateAgentMemory()\nlearnedPatterns | lastInsights | timeline"]
+        SimEngine["What-If Simulator\nsimulateScenario()\nSwap category → project score delta"]
+    end
+
+    subgraph RAG["RAG Layer"]
+        CtxBuilder["Context Builder\nbuildRagContext()\ntop_categories | spend_summary\npattern_signals | memory_summary"]
+        Retrieval["Retrieval\nretrieveRelevant()\nVector similarity over past insights"]
+        PromptTemplate["Prompt Template\nbuildSystemPrompt()\nPersonalised grounding for chat"]
+    end
+
+    subgraph APIS["API Routes"]
+        InsightsAPI["GET /api/agent-insights\nFull pipeline · returns summary\nscore | breakdown | insights\nrecommendations | memory"]
+        ScoreAPI["GET /api/score\nimpactScore | highImpactCount | weeklyTrend"]
+        TxAPI["GET /api/transactions\nReturns stored transactions"]
+        ChatAPI["POST /api/agent-chat\nRAG-grounded conversational agent"]
+        MemoryAPI["GET /api/agent-memory\nMemory timeline for user"]
+        SimAPI["POST /api/simulate\nRuns what-if scenario · returns delta score"]
+    end
+
+    subgraph OPENCLAW["OpenClaw Event Bus"]
+        OCTrigger["POST /api/openclaw/trigger\nEvent router & registry"]
+        OCRegistry["OpenClaw Registry\nRegisterWorkflow() | emit()"]
+        WF1["autoInsightOnUpload\nBuildRagContext → generateInsights\nCache to store on every upload"]
+        WF2["highImpactAlert\nScore threshold check\nEmit alert payload if score > 70"]
+        WF3["weeklyReport\nAggregate totalSpend | topCategories\nCached or fresh insight summary"]
+    end
+
+    subgraph UI["Frontend (Next.js 15 App Router)"]
+        Dashboard["Dashboard Shell\nSummaryCards | TransactionTable\nInsightPanel | AgentChatPanel\nMemoryEvolutionPanel | WhatIfSimulator"]
+        InsightUI["Insight Panel\nSummary | Warnings | Positives\nRecommendations | Behavior Patterns"]
+        TxTable["Transaction Table\nDate | Merchant | Amount\nCategory | Impact Badge"]
+        ChatPanel["Agent Chat Panel\nRAG-grounded Q&A\nPersonalised sustainability advice"]
+        MemoryPanel["Memory Evolution Panel\nTimeline of learned patterns"]
+        SimulatorUI["What-If Simulator\nSwap categories · see score impact"]
+    end
+
+    %% User flows
+    User --> LandingPage
+    LandingPage -->|"Try Sample Data (no login)"| PreviewAPI
+    LandingPage -->|"Download sample CSV"| User
+    LandingPage -->|"Try it out →"| Auth0
+    Auth0 --> AuthScope
+    AuthScope --> UploadAPI
+    AuthScope --> InsightsAPI
+    AuthScope --> ScoreAPI
+    AuthScope --> TxAPI
+    AuthScope --> ChatAPI
+    AuthScope --> SimAPI
+
+    %% Authenticated upload
+    UploadUI --> UploadAPI
+    UploadAPI --> PDFParse
+    UploadAPI --> CSVParse
+    PDFParse --> RuleClassify
+    CSVParse --> RuleClassify
+    RuleClassify --> AICategorize
+    AICategorize --> CategoryEngine
+    CategoryEngine --> UserStore
+    UploadAPI --> OCTrigger
+
+    %% Anonymous preview
+    PreviewAPI --> PDFParse
+    PreviewAPI --> CSVParse
+
+    %% OpenClaw bus
+    OCTrigger --> OCRegistry
+    OCRegistry --> WF1
+    OCRegistry --> WF2
+    OCRegistry --> WF3
+    WF1 --> UserStore
+    WF2 --> UserStore
+    WF3 --> UserStore
+
+    %% Agent pipeline
+    UserStore --> RuleEngine
+    RuleEngine --> ScoringEngine
+    ScoringEngine --> PatternEngine
+    PatternEngine --> InsightGen
+    InsightGen --> AgentMemory
+
+    %% RAG
+    UserStore --> CtxBuilder
+    CtxBuilder --> Retrieval
+    Retrieval --> PromptTemplate
+    PromptTemplate --> ChatAPI
+
+    %% APIs read store
+    InsightsAPI --> UserStore
+    InsightsAPI --> RuleEngine
+    ScoreAPI --> UserStore
+    TxAPI --> UserStore
+    SimAPI --> SimEngine
+    SimEngine --> UserStore
+
+    %% UI renders
+    InsightsAPI --> Dashboard
+    ScoreAPI --> Dashboard
+    TxAPI --> Dashboard
+    ChatAPI --> Dashboard
+    MemoryAPI --> Dashboard
+
+    Dashboard --> InsightUI
+    Dashboard --> TxTable
+    Dashboard --> ChatPanel
+    Dashboard --> MemoryPanel
+    Dashboard --> SimulatorUI
