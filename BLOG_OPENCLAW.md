@@ -33,6 +33,9 @@ lib/openclaw/
 ```ts
 export type OpenClawEventType =
   | "transactions_uploaded"
+  | "score_calculated"
+  | "insights_generated"
+  | "score_improved"
   | "weekly_report"
   | "high_impact_detected"
   | "behavioral_pattern_detected"
@@ -66,26 +69,27 @@ export async function fireOpenClawEvent(event: OpenClawEvent) {
 }
 ```
 
-**Registration** happens at module load time — the registry file imports and wires up the three workflows:
+**Registration** happens at module load time — the registry file imports and wires up all four workflows:
 
 ```ts
 registerOpenClawTrigger("transactions_uploaded", autoInsightOnUpload);
 registerOpenClawTrigger("transactions_uploaded", highImpactAlert);
 registerOpenClawTrigger("weekly_report", weeklyReport);
+registerOpenClawTrigger("score_improved", scoreImprovedCelebration);
 ```
 
-**Firing an event** from an API route is one line:
+**Firing events** from an API route is now one call that chains the whole pipeline:
 
 ```ts
 // app/api/upload/route.ts — after parsing + storing transactions:
-await openClawAutoInsightTrigger(session.user);
+await openClawChainedTrigger(session.user, previousScore);
 ```
 
-The upload route handler returns the parsed data to the client immediately. OpenClaw workflows run after — the user already has their results while automation quietly does the rest.
+`openClawChainedTrigger` fires four events in sequence: `transactions_uploaded → score_calculated → insights_generated → score_improved` (only if the score actually increased). The upload route returns the parsed data to the client immediately — the whole chain runs after the response is already on its way.
 
 ---
 
-### The Three Workflows
+### The Four Workflows
 
 **Workflow 1 — `autoInsightOnUpload`**
 
@@ -111,8 +115,9 @@ export async function autoInsightOnUpload(event: OpenClawEvent) {
 The RAG context builder is what makes this interesting — instead of sending all transactions to the insight engine, it distills them into the most useful signals first:
 - Last 7 days of transactions (or all if none in the last week)
 - Top 2 categories by total spend
-- Top 3 merchants by frequency
 - Detected behavioural patterns (e.g. "3+ food delivery orders this week")
+
+Merchant names are intentionally excluded from the RAG context — they're PII-adjacent and the insight engine doesn't need them to produce useful recommendations.
 
 This grounding is what makes the insights feel specific rather than generic.
 
@@ -120,67 +125,94 @@ This grounding is what makes the insights feel specific rather than generic.
 
 **Workflow 2 — `highImpactAlert`**
 
-Also fires on `transactions_uploaded`. It checks if the impact score dropped below 40/100 and, if so, emits a structured alert:
+Also fires on `transactions_uploaded`. It checks if the impact score is low and, if so, pushes a structured notification directly to the user's in-app notification bell:
 
 ```ts
 export async function highImpactAlert(event: OpenClawEvent) {
-  const score = getScore(event.userId);
+  const score = getScore(pseudonymize(event.userId));
   if (!score) return;
 
   if (score.impactScore < 40) {
-    const alert = {
-      type: "HIGH_IMPACT_ALERT",
-      userId: event.userId,
-      impactScore: score.impactScore,
-      highImpactCount: score.highImpactCount,
-      weeklyTrend: score.weeklyTrend,
-      message: `Your sustainability score dropped to ${score.impactScore}/100 this week with ${score.highImpactCount} high-impact transactions.`,
-      timestamp: new Date().toISOString()
-    };
-    // Production: await sendEmail(event.userId, alert) or await pushNotification(...)
-    console.warn("[OpenClaw] High impact alert:", alert);
+    pushNotification(event.userId, {
+      type: "high_impact",
+      title: "High-Impact Alert",
+      body: `${score.highImpactCount} high-impact transactions detected this week (score: ${score.impactScore}/100).`,
+    });
   }
 }
 ```
 
-Right now it logs to console — in production this would call a Resend email handler or push notification service. The structured payload is already ready for that; the delivery mechanism is the only thing left to plug in.
+The notification lands in the dashboard bell immediately — no email, no external service, no infrastructure. `pseudonymize()` wraps the userId in an FNV-1a hash (`usr_XXXXXXXX`) before it touches any log or store, so PII never leaks into structured outputs.
 
 ---
 
 **Workflow 3 — `weeklyReport`**
 
-Fires on `weekly_report` events (manual or scheduled). It generates a full digest — total spend, impact score, trend, top categories, top recommendation, behaviour patterns — and logs it as a structured object:
+Fires on `weekly_report` events, triggered by Vercel Cron every Monday at 09:00 UTC via `POST /api/cron/weekly-report`. It generates a full digest and pushes it to the notification bell:
 
 ```ts
-const report = {
-  type: "WEEKLY_REPORT",
-  userId: event.userId,
-  week: new Date().toISOString().slice(0, 10),
-  totalSpend: totalSpend.toFixed(2),
-  impactScore: score?.impactScore ?? 0,
-  weeklyTrend: score?.weeklyTrend ?? "No Data",
-  highImpactCount: score?.highImpactCount ?? 0,
-  topCategories,
-  summary: insights.summary,
-  topRecommendation: insights.recommendations[0],
-  behaviorPatterns: insights.behaviorPatterns
-};
+export async function weeklyReport(event: OpenClawEvent) {
+  const transactions = getTransactions(event.userId);
+  const score = getScore(event.userId);
+  const insights = getCachedInsights(event.userId) ?? buildAgentInsights(...);
+
+  pushNotification(event.userId, {
+    type: "weekly_report",
+    title: "Weekly Report",
+    body: `Score: ${score.impactScore}/100 · Spend: $${totalSpend.toFixed(0)} · Trend: ${score.weeklyTrend}`,
+  });
+}
 ```
 
-Again, production delivery (email digest, Slack, push) is one `await` away — the report object is already fully formed.
+The `vercel.json` cron config:
+
+```json
+{ "crons": [{ "path": "/api/cron/weekly-report", "schedule": "0 9 * * 1" }] }
+```
+
+The endpoint validates a `Bearer CRON_SECRET` header, iterates over `CRON_USER_IDS` from env, and fires a `weekly_report` event per user.
 
 ---
 
-### Multiple Workflows on the Same Event
+**Workflow 4 — `scoreImprovedCelebration`**
 
-One of the things I like about the registry approach: you can register multiple triggers for the same event type and they all fire sequentially. Right now both `autoInsightOnUpload` and `highImpactAlert` fire on `transactions_uploaded`:
+Fires on the `score_improved` event, which `openClawChainedTrigger` emits when the new score is higher than the score before the upload. It pushes a celebration notification:
+
+```ts
+export async function scoreImprovedCelebration(event: OpenClawEvent) {
+  pushNotification(event.userId, {
+    type: "score_improved",
+    title: "Score Improved 🌱",
+    body: `Your eco score improved to ${event.payload?.newScore}/100 — great progress!`,
+  });
+}
+```
+
+This is the workflow that closes the feedback loop. Upload → pipeline runs → score improves → bell lights up. All in-process, no round trips.
+
+---
+
+### Multiple Workflows on the Same Event + Chained Pipeline
+
+One of the things I like about the registry approach: you can register multiple triggers for the same event type and they all fire sequentially. Both `autoInsightOnUpload` and `highImpactAlert` fire on `transactions_uploaded`:
 
 ```ts
 registerOpenClawTrigger("transactions_uploaded", autoInsightOnUpload);
 registerOpenClawTrigger("transactions_uploaded", highImpactAlert);
 ```
 
-Adding a third workflow — say, `updateMemoryTimeline` — is one more `registerOpenClawTrigger` call. No changes to the upload route, no changes to existing workflows.
+Adding `scoreImprovedCelebration` on `score_improved` was one more `registerOpenClawTrigger` call. Zero changes to upload logic, zero changes to existing workflows.
+
+The chained pipeline takes this further — instead of firing one event and hoping downstream workflows pick it up, `openClawChainedTrigger` fires a deliberate sequence:
+
+```
+transactions_uploaded
+  → score_calculated   (stores the new score)
+  → insights_generated (triggers autoInsightOnUpload)
+  → score_improved     (only if score increased — triggers celebration)
+```
+
+Each step in the chain passes context forward via `payload`, so later workflows know exactly what the previous step produced. It's a lightweight saga pattern without any infrastructure.
 
 ---
 
@@ -190,7 +222,7 @@ Adding a third workflow — say, `updateMemoryTimeline` — is one more `registe
 
 👉 **[planet-ledger.vercel.app/demo](https://planet-ledger.vercel.app/demo)** — no login needed, try it with sample data right now
 
-The demo page shows the full dashboard — summary cards, transaction table, insights panel, and locked previews of the AI chat, What-If Simulator, and Memory Timeline. After sign-in, uploading a statement triggers all three OpenClaw workflows automatically.
+The demo page shows the full dashboard — summary cards, transaction table, insights panel, weekly summary, a demo notification feed, and locked previews of the AI chat, What-If Simulator, and Memory Timeline. After sign-in, uploading a statement triggers all four OpenClaw workflows automatically.
 
 {% embed https://github.com/ujjavala/PlanetLedger %}
 
@@ -198,15 +230,17 @@ The demo page shows the full dashboard — summary cards, transaction table, ins
 
 ## What I Learned
 
-**Decoupling is worth the extra file.** The upload API route doesn't know anything about insights, alerts, or reports. It parses, stores, fires one event, and returns. That separation made it much easier to iterate — I could change how insights are generated without touching the upload logic at all.
+**Decoupling is worth the extra file.** The upload API route doesn't know anything about insights, alerts, or reports. It parses, stores, fires one chained trigger, and returns. That separation made it much easier to iterate — I could change how insights are generated without touching the upload logic at all.
 
-**Name your events well.** `transactions_uploaded` is clear. `custom` is a trap — you end up using it for everything and lose the ability to filter. I'd add `score_recalculated` and `chat_message_sent` as first-class event types if I were doing this again.
+**Name your events well.** `transactions_uploaded` is clear. `custom` is a trap — you end up using it for everything and lose the ability to filter. Adding `score_calculated`, `insights_generated`, and `score_improved` as first-class event types made the chained pipeline readable and debuggable.
 
-**Structured payloads > strings.** Early versions of the alert workflow just logged a string message. Switching to a structured object with `type`, `userId`, `impactScore`, `highImpactCount`, and `timestamp` made the output immediately usable — I could drop in `sendEmail(event.userId, alert)` without reformatting anything.
+**Structured payloads > strings.** Early versions of the alert workflow just logged a string message. Switching to a structured object with `type`, `userId`, `impactScore`, `highImpactCount`, and `timestamp` — and routing it to `pushNotification()` — made the output immediately usable in the UI with no reformatting.
+
+**Pseudonymize before logging.** Passing raw user IDs into structured logs is a habit that causes problems at scale. Wrapping every `userId` in `pseudonymize()` (FNV-1a → `usr_XXXXXXXX`) before it touches a log or store is a one-line fix that's easier to do from the start than to retrofit later.
 
 **The in-process event bus is underrated for early-stage apps.** It's not RabbitMQ, it doesn't survive server restarts, and you can't replay events. But it gave me the same workflow separation patterns you'd get from a proper queue — at zero infrastructure cost. When it's time to scale, the migration path is clear: replace `fireOpenClawEvent` with an enqueue call and move the workflow functions to workers.
 
-**OpenClaw as an extension point.** The event types I haven't used yet (`high_impact_detected`, `behavioral_pattern_detected`) are sitting there ready. Future workflows — daily nudges, goal progress updates, peer benchmarks — all land in `workflows.ts` with zero changes to the application routes.
+**OpenClaw as an extension point.** The event types I haven't fully wired to UI yet (`behavioral_pattern_detected`) are sitting there ready. Future workflows — goal progress updates, peer benchmarks, proactive nudges — all land in `workflows.ts` with zero changes to application routes.
 
 ---
 

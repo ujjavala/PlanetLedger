@@ -27,7 +27,8 @@ export type UserPreferences = {
 
 export type UserContext = {
   userId: string;
-  email?: string;
+  // email intentionally omitted: not required for agent logic, prevents PII propagation
+  organizationId?: string;
   preferences: UserPreferences;
   scopes: AgentScope[];
   pastInteractions: string[];

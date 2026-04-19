@@ -1,11 +1,13 @@
+import { Leaf, RefreshCw, Globe, type LucideIcon } from "lucide-react";
+
 type GamificationProps = Readonly<{
   impactScore: number;
 }>;
 
-const BADGES = [
-  { label: "Conscious Spender", threshold: 40, emoji: "🌱" },
-  { label: "Low Impact Week",   threshold: 65, emoji: "♻️" },
-  { label: "Planet Saver",      threshold: 85, emoji: "🌍" },
+const BADGES: { label: string; threshold: number; Icon: LucideIcon }[] = [
+  { label: "Conscious Spender", threshold: 40, Icon: Leaf },
+  { label: "Low Impact Week",   threshold: 65, Icon: RefreshCw },
+  { label: "Planet Saver",      threshold: 85, Icon: Globe },
 ];
 
 function ScoreDial({ score }: { score: number }) {
@@ -53,7 +55,7 @@ export function Gamification({ impactScore }: GamificationProps) {
               <div className="flex flex-wrap gap-2">
                 {unlocked.map((b) => (
                   <span key={b.label} className="flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-                    {b.emoji} {b.label}
+                    <b.Icon className="h-3.5 w-3.5" /> {b.label}
                   </span>
                 ))}
               </div>
@@ -66,7 +68,7 @@ export function Gamification({ impactScore }: GamificationProps) {
             <div>
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Next badge</p>
               <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
-                <span className="text-base">{next.emoji}</span>
+                <next.Icon className="h-4 w-4 text-slate-500" />
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-slate-700">{next.label}</p>
                   <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">

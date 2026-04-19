@@ -22,7 +22,7 @@ export function buildAgentPromptTemplate(params: {
     `- Top categories: ${ragContext.top_categories.join(", ") || "n/a"}`,
     `- Weekly spend: ${ragContext.weekly_spend}`,
     `- High impact count: ${ragContext.high_impact_count}`,
-    `- Frequent merchants: ${ragContext.frequent_merchants.join(", ") || "n/a"}`,
+    // Merchant names omitted from prompt — PII-adjacent, not needed for deterministic reasoning
     "",
     "Task:",
     "- Explain impact clearly",

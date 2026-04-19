@@ -12,7 +12,7 @@ export function getUserContextFromAuth0(request: NextRequest) {
   // };
   return {
     user_id: "demo-user",
-    email: "demo@planetledger.ai",
+    // email omitted: not required for agent context
     preferences: {
       sustainabilitySensitivity: "medium"
     },

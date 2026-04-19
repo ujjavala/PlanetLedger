@@ -1,5 +1,6 @@
 import { LandingExamples } from "./landing-examples";
 import { LoginButton } from "../components/login-button";
+import { Globe, Lock, Zap, Leaf, Building2 } from "lucide-react";
 
 function TopNav() {
   return (
@@ -29,7 +30,7 @@ function HeroSection() {
       <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-gradient-to-tr from-yellow-400/10 to-transparent rounded-full blur-3xl" />
 
       <span className="relative mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-700">
-        🌍 AI-Powered Sustainability Finance
+        <Globe className="h-3.5 w-3.5" /> AI-Powered Sustainability Finance
       </span>
 
       <h1 className="relative mx-auto max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-5xl lg:text-6xl">
@@ -63,10 +64,10 @@ function HeroSection() {
       </div>
 
       <div className="relative mt-10 flex flex-wrap justify-center gap-6 text-xs font-medium text-slate-500">
-        <span className="flex items-center gap-1.5">🔒 Secured by Auth0</span>
-        <span className="flex items-center gap-1.5">⚡ Real-time AI insights</span>
-        <span className="flex items-center gap-1.5">🌱 CO₂ tracked per transaction</span>
-        <span className="flex items-center gap-1.5">🏦 Works with AU transaction exports</span>
+        <span className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" /> Secured by Auth0</span>
+        <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Real-time AI insights</span>
+        <span className="flex items-center gap-1.5"><Leaf className="h-3.5 w-3.5" /> CO₂ tracked per transaction</span>
+        <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Works with AU transaction exports</span>
       </div>
     </section>
   );

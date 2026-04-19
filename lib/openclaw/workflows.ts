@@ -1,6 +1,7 @@
 import { buildRagContext } from "@/lib/rag/context-builder";
 import { buildAgentInsights } from "@/lib/agent/insight-engine";
-import { getTransactions, getScore, setCachedInsights, getCachedInsights } from "@/lib/store";
+import { getTransactions, getScore, setCachedInsights, getCachedInsights, pushNotification } from "@/lib/store";
+import { pseudonymize } from "@/lib/privacy/sanitizer";
 import type { OpenClawEvent } from "./types";
 
 // --- Workflow 1: Auto-insight generation on upload ---
@@ -19,17 +20,20 @@ export async function highImpactAlert(event: OpenClawEvent) {
   if (!score) return;
 
   if (score.impactScore < 40) {
-    // Log structured alert — replace with real notification (email/push) in production
     const alert = {
       type: "HIGH_IMPACT_ALERT",
-      userId: event.userId,
+      userId: pseudonymize(event.userId),
       impactScore: score.impactScore,
       highImpactCount: score.highImpactCount,
       weeklyTrend: score.weeklyTrend,
       message: `Your sustainability score dropped to ${score.impactScore}/100 this week with ${score.highImpactCount} high-impact transactions. Consider reducing fast fashion, food delivery, or high-spend categories.`,
       timestamp: new Date().toISOString()
     };
-    // In production: await sendEmail(event.userId, alert) or await pushNotification(event.userId, alert)
+    pushNotification(event.userId, {
+      type: "high_impact",
+      title: "High Impact Alert",
+      body: alert.message,
+    });
     console.warn("[OpenClaw] High impact alert:", alert);
   }
 }
@@ -50,7 +54,7 @@ export async function weeklyReport(event: OpenClawEvent) {
 
   const report = {
     type: "WEEKLY_REPORT",
-    userId: event.userId,
+    userId: pseudonymize(event.userId),
     week: new Date().toISOString().slice(0, 10),
     totalSpend: totalSpend.toFixed(2),
     impactScore: score?.impactScore ?? 0,
@@ -63,4 +67,31 @@ export async function weeklyReport(event: OpenClawEvent) {
   };
   // In production: await sendEmail(event.userId, report) or store in DB
   console.info("[OpenClaw] Weekly report generated:", report);
+
+  pushNotification(event.userId, {
+    type: "weekly_report",
+    title: `Weekly Report — ${report.week}`,
+    body: `Score: ${report.impactScore}/100 (${report.weeklyTrend}) · Spend: $${report.totalSpend} · Top: ${(report.topCategories as string[]).join(", ") || "mixed"} · ${report.topRecommendation}`,
+  });
+}
+
+// --- Workflow 4: Score improvement celebration ---
+export async function scoreImprovedCelebration(event: OpenClawEvent) {
+  const payload = event.payload as { previousScore: number; newScore: number; delta: number } | undefined;
+  if (!payload) return;
+
+  const celebration = {
+    type: "SCORE_IMPROVED",
+    userId: pseudonymize(event.userId),
+    delta: payload.delta,
+    newScore: payload.newScore,
+    message: `Great progress! Sustainability score improved by ${payload.delta} points to ${payload.newScore}/100.`,
+    timestamp: new Date().toISOString(),
+  };
+  pushNotification(event.userId, {
+    type: "score_improved",
+    title: "Score Improved",
+    body: celebration.message,
+  });
+  console.info("[OpenClaw] Score improved:", celebration);
 }

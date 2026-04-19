@@ -1,6 +1,6 @@
 "use client";
 
-import { Upload } from "lucide-react";
+import { Upload, Lock } from "lucide-react";
 import { useState } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 
@@ -111,8 +111,8 @@ export function UploadPanel({ onUploaded }: UploadPanelProps) {
         </p>
       )}
 
-      <p className="mt-4 text-center text-xs text-slate-400">
-        🔒 Files are never stored — only extracted transactions are saved.
+      <p className="mt-4 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
+        <Lock className="h-3.5 w-3.5" /> Files are never stored — only extracted transactions are saved.
       </p>
     </section>
   );

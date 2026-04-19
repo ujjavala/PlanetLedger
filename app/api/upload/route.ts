@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { authorizeAgentScope } from "@/lib/auth/agent-authorization";
-import { upsertTransactions } from "@/lib/store";
-import { openClawAutoInsightTrigger } from "@/lib/openclaw/trigger";
+import { upsertTransactions, getScore } from "@/lib/store";
+import { openClawChainedTrigger } from "@/lib/openclaw/trigger";
 import { parseTransactionsCsv } from "@/lib/transactions/csv-parser";
 import { aiClassifyMerchant } from "@/lib/transactions/ai-categorize";
 import { resolveImpactColor } from "@/lib/transactions/categorization";
@@ -115,11 +115,12 @@ export async function POST(request: Request) {
     );
     transactions = reclassified;
 
+    const previousScore = getScore(authorization.context.userId)?.impactScore;
     upsertTransactions(authorization.context.userId, transactions);
-    await openClawAutoInsightTrigger({
-      sub: authorization.context.userId,
-      email: authorization.context.email || undefined
-    });
+    await openClawChainedTrigger(
+      { sub: authorization.context.userId } as import("@auth0/nextjs-auth0/types").User,
+      previousScore
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid upload payload";
     return NextResponse.json({ error: message }, { status: 400 });

@@ -6,7 +6,8 @@ flowchart TD
     end
 
     subgraph AUTH["Auth & Identity"]
-        Auth0["🔐 Auth0\n(Identity, Scopes & Memory Boundary)"]
+        Auth0["🔐 Auth0\n(Identity, Scopes & Memory Boundary)\nMFA · Rolling Sessions · Post-Login Action"]
+        FGA["FGA Rule Table\nresource + action → required scope\nlib/auth/fga.ts"]
         AuthScope["Agent Scope Enforcer\nread:transactions | write:insights\nupdate:score | read:behavior_patterns\nwrite:agent_memory"]
     end
 
@@ -29,8 +30,10 @@ flowchart TD
         ScoringEngine["Scoring Engine\ncalculateImpactScore()\nimpactScore | highImpactCount | weeklyTrend"]
         PatternEngine["Pattern Engine\ndetectPatterns()\nweekendSpendingSpike | fastFashionBurst\ncategoryConcentration | weekdayWeekendImbalance"]
         InsightGen["Insight Generator\ngenerateAgentInsights()\n⚠️ WARNING | ✅ POSITIVE | ℹ️ NEUTRAL"]
-        AgentMemory["Agent Memory\ngetAgentMemory() | updateAgentMemory()\nlearnedPatterns | lastInsights | timeline"]
+        AgentMemory["Agent Memory (file-backed)\ngetAgentMemory() | updateAgentMemory()\n.agent-memory/<fnv1a-hash>.json · 30-day expiry"]
+        NudgeEngine["Proactive Nudges\ngenerateNudges()\nWARNING | TIP | CELEBRATION"]
         SimEngine["What-If Simulator\nsimulateScenario()\nSwap category → project score delta"]
+        Sanitizer["Privacy Sanitizer\nsanitizeForLog() · pseudonymize()\nFNV-1a hash · PII redaction"]
     end
 
     subgraph RAG["RAG Layer"]
@@ -43,21 +46,25 @@ flowchart TD
         InsightsAPI["GET /api/agent-insights\nFull pipeline · returns summary\nscore | breakdown | insights\nrecommendations | memory"]
         ScoreAPI["GET /api/score\nimpactScore | highImpactCount | weeklyTrend"]
         TxAPI["GET /api/transactions\nReturns stored transactions"]
-        ChatAPI["POST /api/agent-chat\nRAG-grounded conversational agent"]
+        ChatAPI["POST /api/agent-chat\nMulti-turn · what-if · doc Q&A\nRAG-grounded conversational agent"]
         MemoryAPI["GET /api/agent-memory\nMemory timeline for user"]
         SimAPI["POST /api/simulate\nRuns what-if scenario · returns delta score"]
+        NotifAPI["GET /api/notifications\nPOST /api/notifications (mark read)\nIn-app notification feed"]
     end
 
     subgraph OPENCLAW["OpenClaw Event Bus"]
-        OCTrigger["POST /api/openclaw/trigger\nEvent router & registry"]
+        OCTrigger["openClawChainedTrigger\nChained pipeline:\ntransactions_uploaded → score_calculated\n→ insights_generated → score_improved"]
         OCRegistry["OpenClaw Registry\nRegisterWorkflow() | emit()"]
         WF1["autoInsightOnUpload\nBuildRagContext → generateInsights\nCache to store on every upload"]
-        WF2["highImpactAlert\nScore threshold check\nEmit alert payload if score > 70"]
-        WF3["weeklyReport\nAggregate totalSpend | topCategories\nCached or fresh insight summary"]
+        WF2["highImpactAlert\nScore threshold check · push notification\nTop offending categories"]
+        WF3["weeklyReport\nAggregate totalSpend | topCategories\nPush weekly notification"]
+        WF4["scoreImprovedCelebration\nscore_improved event\nPush celebration notification"]
+        CronAPI["POST /api/cron/weekly-report\nVercel Cron · Mon 09:00 UTC\nBEARER CRON_SECRET auth"]
     end
 
     subgraph UI["Frontend (Next.js 15 App Router)"]
         Dashboard["Dashboard Shell\nSummaryCards | TransactionTable\nInsightPanel | AgentChatPanel\nMemoryEvolutionPanel | WhatIfSimulator"]
+        NotifBell["Notification Bell\nPolls /api/notifications every 60s\nUnread badge · dropdown feed"]
         InsightUI["Insight Panel\nSummary | Warnings | Positives\nRecommendations | Behavior Patterns"]
         TxTable["Transaction Table\nDate | Merchant | Amount\nCategory | Impact Badge"]
         ChatPanel["Agent Chat Panel\nRAG-grounded Q&A\nPersonalised sustainability advice"]
@@ -70,7 +77,8 @@ flowchart TD
     LandingPage -->|"Try Sample Data (no login)"| PreviewAPI
     LandingPage -->|"Download sample CSV"| User
     LandingPage -->|"Try it out →"| Auth0
-    Auth0 --> AuthScope
+    Auth0 --> FGA
+    FGA --> AuthScope
     AuthScope --> UploadAPI
     AuthScope --> InsightsAPI
     AuthScope --> ScoreAPI
@@ -95,12 +103,17 @@ flowchart TD
 
     %% OpenClaw bus
     OCTrigger --> OCRegistry
+    CronAPI --> OCTrigger
     OCRegistry --> WF1
     OCRegistry --> WF2
     OCRegistry --> WF3
+    OCRegistry --> WF4
     WF1 --> UserStore
     WF2 --> UserStore
     WF3 --> UserStore
+    WF4 --> UserStore
+    WF2 --> Sanitizer
+    WF3 --> Sanitizer
 
     %% Agent pipeline
     UserStore --> RuleEngine
@@ -108,6 +121,7 @@ flowchart TD
     ScoringEngine --> PatternEngine
     PatternEngine --> InsightGen
     InsightGen --> AgentMemory
+    InsightGen --> NudgeEngine
 
     %% RAG
     UserStore --> CtxBuilder
@@ -122,6 +136,7 @@ flowchart TD
     TxAPI --> UserStore
     SimAPI --> SimEngine
     SimEngine --> UserStore
+    NotifAPI --> UserStore
 
     %% UI renders
     InsightsAPI --> Dashboard
@@ -129,9 +144,11 @@ flowchart TD
     TxAPI --> Dashboard
     ChatAPI --> Dashboard
     MemoryAPI --> Dashboard
+    NotifAPI --> NotifBell
 
     Dashboard --> InsightUI
     Dashboard --> TxTable
     Dashboard --> ChatPanel
     Dashboard --> MemoryPanel
     Dashboard --> SimulatorUI
+    Dashboard --> NotifBell

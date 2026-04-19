@@ -1,4 +1,4 @@
-import { Shirt, Car, Smartphone, AlertTriangle, Leaf } from "lucide-react";
+import { Shirt, Car, Smartphone, AlertTriangle, Leaf, BarChart3, Bot } from "lucide-react";
 
 const examples = [
   {
@@ -51,14 +51,14 @@ export function LandingExamples() {
           See your impact score, get actionable tips, and watch your habits evolve—powered by Auth0 agents and real data.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-3">
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-            🌱 Understand your spending impact
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+            <Leaf className="h-3.5 w-3.5" /> Understand your spending impact
           </span>
-          <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
-            📊 Category breakdown per transaction
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
+            <BarChart3 className="h-3.5 w-3.5" /> Category breakdown per transaction
           </span>
-          <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
-            🤖 AI-powered merchant classification
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
+            <Bot className="h-3.5 w-3.5" /> AI-powered merchant classification
           </span>
         </div>
       </div>

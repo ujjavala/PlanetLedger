@@ -16,7 +16,8 @@ export async function fireOpenClawEvent(event: OpenClawEvent) {
 }
 
 // --- Register default workflows ---
-import { autoInsightOnUpload, highImpactAlert, weeklyReport } from "./workflows";
+import { autoInsightOnUpload, highImpactAlert, weeklyReport, scoreImprovedCelebration } from "./workflows";
 registerOpenClawTrigger("transactions_uploaded", autoInsightOnUpload);
 registerOpenClawTrigger("transactions_uploaded", highImpactAlert);
 registerOpenClawTrigger("weekly_report", weeklyReport);
+registerOpenClawTrigger("score_improved", scoreImprovedCelebration);

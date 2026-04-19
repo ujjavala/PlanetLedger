@@ -37,6 +37,9 @@ Thumbs.db
 *.bak
 *.old
 
+# Agent memory (file-backed, user-specific, never commit)
+.agent-memory/
+
 # Turbo repo
 .turbo/
 

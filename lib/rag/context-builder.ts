@@ -1,5 +1,5 @@
 import { detectBehaviorPatterns } from "@/lib/agent/pattern-detector";
-import { retrieveFrequentMerchants, retrieveRecentTransactions, retrieveTopCategories } from "@/lib/rag/retrieval";
+import { retrieveRecentTransactions, retrieveTopCategories } from "@/lib/rag/retrieval";
 import type { ScorePayload, Transaction } from "@/lib/types";
 
 export type RagContext = {
@@ -7,7 +7,7 @@ export type RagContext = {
   weekly_spend: number;
   high_impact_count: number;
   patterns: string[];
-  frequent_merchants: string[];
+  // frequent_merchants removed: merchant names are PII-adjacent and not needed for agent reasoning
 };
 
 export function buildRagContext(transactions: Transaction[], score: ScorePayload): RagContext {
@@ -19,6 +19,5 @@ export function buildRagContext(transactions: Transaction[], score: ScorePayload
     weekly_spend: Number(weeklySpend.toFixed(2)),
     high_impact_count: score.highImpactCount,
     patterns: detectBehaviorPatterns(recentTransactions),
-    frequent_merchants: retrieveFrequentMerchants(recentTransactions)
   };
 }

@@ -96,20 +96,19 @@ export async function middleware(request: NextRequest) {
 }
 ```
 
-Every API route checks an internal agent scope before doing anything:
+Every API route checks an internal agent scope before doing anything. The scope check is now backed by a **fine-grained authorisation (FGA)** rule table (`lib/auth/fga.ts`) that maps `resource + action → required scope`:
 
 ```ts
-export async function authorizeAgentScope(requiredScope: AgentScope) {
-  const session = await auth0.getSession();
-  const userContext = resolveUserContext(session?.user);
-  if (!hasRequiredScope(userContext.scopes, requiredScope)) {
-    return { ok: false, response: NextResponse.json({ error: `Agent scope missing: ${requiredScope}` }, { status: 403 }) };
-  }
-  return { ok: true, context: userContext };
+// lib/auth/fga.ts
+export function canPerform(scopes: string[], resource: FGAResource, action: FGAAction): boolean {
+  const required = FGA_RULES[resource]?.[action];
+  return required ? scopes.includes(required) : false;
 }
 ```
 
-The scopes (`read:transactions`, `write:insights`, `update:score`) live as custom Auth0 claims — not OIDC scopes — which keeps agent permissions cleanly separated from OAuth. User preferences (`noCarOwnership`, `lowIncomeMode`) and the agent memory summary are also stored as Auth0 custom claims so they survive across sessions.
+The scopes (`read:transactions`, `write:insights`, `update:score`) live as custom Auth0 claims — not OIDC scopes — which keeps agent permissions cleanly separated from OAuth. User preferences (`noCarOwnership`, `lowIncomeMode`) are stored as Auth0 custom claims so they survive across sessions.
+
+A **Post-Login Action** (`lib/auth/actions/post-login.js`) provisions new users on first login — setting `eco_tier: "starter"` in `app_metadata`, injecting custom claims, and enforcing MFA via `api.multifactor.enable("any")`. Rolling sessions (`inactivityDuration: 1 day`, `absoluteDuration: 7 days`) keep users signed in without requiring frequent re-auth.
 
 The public `/demo` page and `/api/upload/preview` are excluded from the middleware matcher, so anyone can try the app without an account.
 
@@ -119,15 +118,18 @@ The public `/demo` page and `/api/upload/preview` are excluded from the middlewa
 
 OpenClaw is a lightweight in-process event system I built to wire up automation without reaching for a queue service.
 
-Three workflows register on startup:
+Four workflows register on startup:
 
-| Workflow | Trigger | What it does |
+| Workflow | Event | What it does |
 |---|---|---|
-| `autoInsightOnUpload` | Every CSV/PDF upload | Runs the full agent pipeline, caches insights |
-| `highImpactAlert` | Score drops below 40/100 | Logs a structured alert with the top offending categories |
-| `weeklyReport` | Manual / scheduled | Full score + insights + spend breakdown digest |
+| `autoInsightOnUpload` | `transactions_uploaded` | Runs the full agent pipeline, caches insights |
+| `highImpactAlert` | `high_impact_detected` | Pushes in-app alert notification with top offending categories |
+| `weeklyReport` | `weekly_report` | Full score + insights digest; pushes weekly notification to the bell |
+| `scoreImprovedCelebration` | `score_improved` | Pushes a celebration notification when the score rises after upload |
 
-After an upload, the API handler fires `transactions_uploaded` and OpenClaw takes care of the rest — the route handler just returns the parsed data immediately while the pipeline runs.
+After an upload, `openClawChainedTrigger()` fires the full sequence: `transactions_uploaded → score_calculated → insights_generated → score_improved` (if the score increased). The route handler just returns the parsed data immediately while the pipeline runs.
+
+Vercel Cron fires `weekly_report` every Monday at 09:00 UTC via `POST /api/cron/weekly-report`, configured in `vercel.json`.
 
 ---
 
@@ -155,44 +157,65 @@ Premium features (AI chat, What-If Simulator, Memory Timeline) show as blurred l
 Rules are fast, free, and traceable. Every categorisation decision has an exact rule you can point to. I use the LLM only for the `"Other"` fallback bucket — maybe 10–15% of transactions — where a keyword match doesn't exist. That keeps costs near zero and lets the rules engine run at build time on the demo page.
 
 **Why an in-memory store?**
-For a weekend build, an in-memory `Map<userId, UserMemory>` is zero-infrastructure and good enough for single-server dev. The entire storage layer is behind a `lib/store.ts` interface — swapping to Redis or Postgres is one function replacement, not an architectural change.
+For a weekend build, an in-memory `Map<userId, UserMemory>` is zero-infrastructure and good enough for single-server dev. Both stores are now anchored to `globalThis.__pl_*` keys so HMR hot reloads in dev don't wipe your data. The entire storage layer is behind a `lib/store.ts` interface — swapping to Redis or Postgres is one function replacement, not an architectural change.
+
+Agent memory specifically uses a **file-backed store** (`.agent-memory/<fnv1a-hash>.json`) with 30-day auto-expiry — so the agent's learned patterns survive server restarts, not just hot reloads.
 
 **Why AU sample data, and can other countries use it?**
 The sample data is from an Australian bank (ANZ/CBA-style export), but the parser isn't locked to Australia. Any CSV that follows the `Date / Transaction / Debit / Credit / Balance` column schema will parse correctly — regardless of the bank or country. The vendor categorisation rules are AU-focused right now (Woolworths, Chemist Warehouse, Didi, etc.), but the categorisation layer is just a map — adding UK, US, or EU merchants is additive. The "Why AU only" answer is really: nailing one set of vendors well beats vague coverage of five markets.
 
 ---
 
-## What's Next
+## Going Further During the Weekend
 
-This was a weekend build, so there's a lot of "it works but could be better." Here's the roadmap I'm thinking about:
+The core build came together fast, so I kept pushing. Here's what landed after the initial submission:
 
-**Real LLM for chat and insights**
-Right now the chat engine is keyword-matching with templated responses. The scaffolding is already there (RAG context builder, prompt grounding) — connecting it to GPT-4o or Gemini for real conversational replies is the highest-value next step.
+**Real multi-turn chat with what-if and doc Q&A**
+The chat engine was keyword-matching and templated. It's now a real multi-turn conversation — conversation history is injected as context so the agent remembers what you asked. You can ask "what if I reduce food delivery by 30%?" and the agent runs an actual score simulation. You can ask "how much did I spend on groceries last week?" and it queries your real transaction data. The RAG scaffolding was already there; wiring it up to GPT-4o was the last step.
+
+**File-backed persistent agent memory**
+Agent memory moved from an in-memory `Map` (lost on restart) to per-user `.agent-memory/<fnv1a-hash>.json` files with 30-day auto-expiry. In dev they live at `.agent-memory/`, in prod at `/tmp/planetledger-memory/`. The agent's learned patterns now actually survive hotfixes and deploys.
+
+**In-app notification bell**
+OpenClaw's `highImpactAlert` and `weeklyReport` were logging to console. Now they push structured notifications to an in-memory store, which a bell component polls every 60 seconds. Three notification types: 📊 Weekly Report, 🌱 Score Improved, ⚠️ High-Impact Alert. The `score_improved` event is new too — fires automatically when an upload raises your score.
+
+**Chained OpenClaw pipeline + Vercel Cron**
+The upload flow now fires a full event chain: `transactions_uploaded → score_calculated → insights_generated → score_improved`. One call, four events, all in-process. The weekly report fires via Vercel Cron every Monday 09:00 UTC (`vercel.json` + `/api/cron/weekly-report`).
+
+**Auth0 FGA, Post-Login Action, MFA, rolling sessions**
+The flat scope check got replaced with a proper FGA rule table (`resource + action → required scope`). A Post-Login Action provisions new users on first login and enforces MFA. Rolling sessions mean users stay signed in across the week without re-authing.
+
+**Privacy hardening**
+`email` and merchant names are no longer stored in `UserContext`, agent memory, or RAG prompts — they're PII-adjacent and don't need to be there. OpenClaw workflow logs pseudonymize user IDs via FNV-1a hash (`usr_XXXXXXXX`). A `lib/privacy/sanitizer.ts` module handles all redaction.
+
+---
+
+## What's Still Next
 
 **Persistent database**
-The in-memory store is the biggest production blocker. The plan is Postgres via Prisma — transactions, scores, chat history, and memory timeline all need to survive server restarts. The store interface is already abstracted so the migration is mostly additive.
+The transaction store is still in-memory (`Map<userId, UserMemory>` anchored to `globalThis` for HMR safety). Agent memory is file-backed now, but transactions, scores, and chat history need Postgres via Prisma for real persistence. The store interface is already abstracted — the migration is mostly additive.
 
 **Smart parsing for all countries**
-The AU bank format is very specific. The next version should detect the bank format automatically — US (Plaid/OFX), UK (Monzo/Starling CSV), EU (SEPA), and AU — and route to the right parser. Longer term, LLM-based "fuzzy CSV parsing" could handle any format without needing a custom regex per bank.
+The AU bank format is very specific. The next version should detect the bank format automatically — US (Plaid/OFX), UK (Monzo/Starling CSV), EU (SEPA), and AU — and route to the right parser.
 
 **Real CO₂ data**
 Right now impact scores are proxy-based (category + spend → colour). The right approach is to integrate an actual emissions API (like Climatiq or Patch) to get grams of CO₂e per transaction category, so the score means something measurable.
 
-**Email / push notifications**
-OpenClaw's `highImpactAlert` workflow already fires structured events — it's just logging to console right now. Hooking it up to Resend or a push service would make the alerts actually reach users.
+**Email / push delivery**
+In-app notifications work. Email or mobile push (Resend, FCM) would make the weekly report actually reach users where they are.
 
 **Mobile-friendly upload**
-The upload panel works on desktop. Adding a mobile-optimised flow where you can forward a bank statement email directly to PlanetLedger (via a Cloudflare Email Worker or similar) would massively reduce friction.
+The upload panel works on desktop. A mobile-optimised flow — forwarding a bank statement email directly to PlanetLedger via a Cloudflare Email Worker — would massively reduce friction.
 
 **More AI agent capabilities**
 - Goal setting ("I want to reduce fast fashion spend by 40% this month") with progress tracking
 - Carbon offset suggestions matched to your worst categories
-- Peer comparison ("people with similar spending reduced food delivery by X%")
+- Peer comparison ("people with similar spending reduced food delivery by X%")- Surface proactive nudges (WARNING / TIP / CELEBRATION) from `lib/agent/nudges.ts` — the engine is built, just needs an API route + UI hook
 
 ---
 
 ## Prize Categories
 
-- **Best Use of Auth0 for Agents** — Auth0 v4 middleware with zero route handlers, per-user agent scopes as custom claims, session-scoped agent memory keyed by Auth0 `sub`, server-side session retrieval throughout the Next.js App Router, scope check on every API route before any agent action runs.
+- **Best Use of Auth0 for Agents** — Auth0 v4 middleware with zero route handlers; FGA rule table (`resource + action → scope`) backing every agent action; Post-Login Action provisioning with MFA enforcement; rolling sessions (`inactivityDuration` + `absoluteDuration`); custom claims for preferences, eco_tier, and organization_id; scope check on every API route before any agent action runs.
 
-- **Best Use of GitHub Copilot** — Used end-to-end: scaffolding the agent pipeline, writing AU vendor categorisation rules, building the PDF regex extractor, generating type-safe API routes, iterating on UI components, and debugging type mismatches between the two `Transaction` shapes the codebase had to reconcile.
+- **Best Use of GitHub Copilot** — Used end-to-end: scaffolding the agent pipeline, writing AU vendor categorisation rules, building the PDF regex extractor, generating type-safe API routes, implementing the FGA rule table and privacy sanitizer, designing the notification bell + polling architecture, building the chained OpenClaw pipeline, and iterating on UI components throughout.

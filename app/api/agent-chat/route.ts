@@ -26,14 +26,14 @@ export async function POST(request: Request) {
   const ragContext = buildRagContext(transactions, score);
   const insights = buildAgentInsights(transactions, context, score, ragContext);
 
-  // Generated with GitHub Copilot: RAG-grounded conversational response layer.
   const agentReply = generateChatReply({
     prompt: userMessage,
     userContext: context,
     transactions,
     score,
     insights,
-    ragContext
+    ragContext,
+    history: getChatHistory(context.userId),
   });
 
   appendChatMessage(context.userId, {

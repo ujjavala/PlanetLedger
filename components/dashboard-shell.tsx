@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Globe, Lock, Bot, Leaf } from "lucide-react";
 
 import { AgentChatPanel } from "@/components/agent-chat-panel";
 import { Gamification } from "@/components/gamification";
 import { InsightPanel } from "@/components/insight-panel";
 import { MemoryEvolutionPanel } from "@/components/memory-evolution-panel";
+import { NotificationBell } from "@/components/notification-bell";
 import { Sidebar } from "@/components/sidebar";
 import { SummaryCards } from "@/components/summary-cards";
 import { TransactionTable } from "@/components/transaction-table";
@@ -102,7 +104,7 @@ export function DashboardShell({ email }: DashboardShellProps) {
             <div className="relative flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="text-xl">🌍</span>
+                  <Globe className="h-5 w-5 text-emerald-300" />
                   <a href="/" className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300 hover:text-white transition">PlanetLedger</a>
                 </div>
                 {email ? (
@@ -120,12 +122,15 @@ export function DashboardShell({ email }: DashboardShellProps) {
 
               <div className="flex flex-col items-end gap-2">
                 {email ? (
-                  <a
-                    href="/auth/logout"
-                    className="rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
-                  >
-                    Sign out
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <NotificationBell />
+                    <a
+                      href="/auth/logout"
+                      className="rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
+                    >
+                      Sign out
+                    </a>
+                  </div>
                 ) : (
                   <a
                     href="/auth/login"
@@ -144,12 +149,16 @@ export function DashboardShell({ email }: DashboardShellProps) {
             </div>
 
             <div className="relative mt-5 flex flex-wrap gap-2">
-              {(["🔒 Bank-grade security", "🤖 AI-powered insights", "🌱 CO₂ tracked per spend"] as const).map((badge) => (
+              {([
+                { Icon: Lock,    label: "Bank-grade security" },
+                { Icon: Bot,     label: "AI-powered insights" },
+                { Icon: Leaf,    label: "CO₂ tracked per spend" },
+              ] as const).map(({ Icon, label }) => (
                 <span
-                  key={badge}
-                  className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-emerald-100 backdrop-blur"
+                  key={label}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-emerald-100 backdrop-blur"
                 >
-                  {badge}
+                  <Icon className="h-3.5 w-3.5" />{label}
                 </span>
               ))}
             </div>

@@ -15,7 +15,26 @@ type UserMemory = {
   };
 };
 
-const userMemoryStore = new Map<string, UserMemory>();
+export type AppNotification = {
+  id: string;
+  type: "weekly_report" | "score_improved" | "high_impact";
+  title: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
+};
+
+// Attach stores to `globalThis` so they survive Next.js HMR hot-reloads in dev.
+// In production the module is only ever instantiated once, so this is a no-op.
+type GlobalStore = typeof globalThis & {
+  __pl_userMemoryStore?: Map<string, UserMemory>;
+  __pl_notificationStore?: Map<string, AppNotification[]>;
+};
+const g = globalThis as GlobalStore;
+if (!g.__pl_userMemoryStore) g.__pl_userMemoryStore = new Map();
+if (!g.__pl_notificationStore) g.__pl_notificationStore = new Map();
+
+const userMemoryStore = g.__pl_userMemoryStore;
 const defaultScopes: AgentScope[] = [...DEFAULT_AGENT_SCOPES];
 
 function getOrCreateMemory(userId: string): UserMemory {
@@ -42,7 +61,8 @@ export function resolveUserContext(user: User | null | undefined): UserContext {
 
   return {
     userId,
-    email: user?.email,
+    // email intentionally omitted — not needed for agent logic
+    organizationId: user?.["https://planetledger/organization_id"] as string | undefined,
     preferences: {
       noCarOwnership: Boolean(rawPreferences.noCarOwnership),
       lowIncomeMode: Boolean(rawPreferences.lowIncomeMode)
@@ -116,4 +136,27 @@ export function getCachedInsights(userId: string): InsightPayload | undefined {
   }
 
   return cache.data;
+}
+
+
+const notificationStore = g.__pl_notificationStore;
+
+export function pushNotification(userId: string, notification: Omit<AppNotification, "id" | "read" | "createdAt">) {
+  const existing = notificationStore.get(userId) ?? [];
+  const entry: AppNotification = {
+    ...notification,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+  notificationStore.set(userId, [entry, ...existing].slice(0, 20));
+}
+
+export function getNotifications(userId: string): AppNotification[] {
+  return notificationStore.get(userId) ?? [];
+}
+
+export function markNotificationsRead(userId: string) {
+  const existing = notificationStore.get(userId) ?? [];
+  notificationStore.set(userId, existing.map((n) => ({ ...n, read: true })));
 }

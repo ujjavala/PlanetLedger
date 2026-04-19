@@ -1,7 +1,7 @@
-import { openClawAutoInsightTrigger } from "@/lib/openclaw/trigger";
+import { openClawChainedTrigger } from "@/lib/openclaw/trigger";
 import { NextResponse } from "next/server";
 import { authorizeAgentScope } from "@/lib/auth/agent-authorization";
-import { upsertTransactions } from "@/lib/store";
+import { upsertTransactions, getScore } from "@/lib/store";
 import { parseTransactionsCsv } from "@/lib/transactions/csv-parser";
 
 
@@ -113,12 +113,13 @@ export async function POST(request: Request) {
     } else {
       throw new Error("Unsupported file type. Upload CSV or PDF.");
     }
+    const previousScore = getScore(authorization.context.userId)?.impactScore;
     upsertTransactions(authorization.context.userId, transactions);
-    // OpenClaw: auto-insight trigger after upload
-    await openClawAutoInsightTrigger({
-      sub: authorization.context.userId,
-      email: authorization.context.email || undefined
-    });
+    // OpenClaw: chained multi-event pipeline after upload
+    await openClawChainedTrigger(
+      { sub: authorization.context.userId } as import("@auth0/nextjs-auth0/types").User,
+      previousScore
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid upload payload";
     return NextResponse.json({ error: message }, { status: 400 });
