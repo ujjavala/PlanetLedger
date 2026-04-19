@@ -12,7 +12,10 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: "PlanetLedger",
-  description: "AI-powered sustainability finance dashboard with Auth0 agent context"
+  description: "AI-powered sustainability finance dashboard with Auth0 agent context",
+  icons: {
+    icon: "/logo.png"
+  }
 };
 
 export default function RootLayout({
