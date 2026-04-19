@@ -166,19 +166,23 @@ export function DashboardShell({ email }: DashboardShellProps) {
 
           <UploadPanel onUploaded={refresh} />
 
-          <SummaryCards
-            totalSpend={totalSpend}
-            impactScore={impactScore}
-            highImpactCount={highImpactCount}
-            weeklyTrend={weeklyTrend}
-          />
+          <div id="impact-score">
+            <SummaryCards
+              totalSpend={totalSpend}
+              impactScore={impactScore}
+              highImpactCount={highImpactCount}
+              weeklyTrend={weeklyTrend}
+            />
+          </div>
 
-          <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+          <div id="transactions" className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
             <TransactionTable transactions={transactions} />
             <Gamification impactScore={impactScore} />
           </div>
 
-          <InsightPanel insights={insights} />
+          <div id="insights">
+            <InsightPanel insights={insights} />
+          </div>
 
           {email && (
             <div className="grid gap-4 xl:grid-cols-2">
@@ -188,6 +192,31 @@ export function DashboardShell({ email }: DashboardShellProps) {
           )}
 
           {email && <MemoryEvolutionPanel timeline={memoryTimeline} />}
+
+          <section id="profile" className="rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-card">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Your Profile</h3>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs text-slate-500">Signed in as</p>
+                <p className="mt-0.5 text-sm font-semibold text-slate-900">{email ?? "Anonymous"}</p>
+              </div>
+              {email ? (
+                <a
+                  href="/auth/logout"
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                >
+                  Sign out
+                </a>
+              ) : (
+                <a
+                  href="/auth/login"
+                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                >
+                  Sign in
+                </a>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </main>

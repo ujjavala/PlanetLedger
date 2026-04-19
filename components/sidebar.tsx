@@ -2,7 +2,7 @@
 import { Home, Leaf, Lightbulb, List, User } from "lucide-react";
 
 const navItems = [
-  { label: "Home", icon: Home, href: "#home" },
+  { label: "Home", icon: Home, href: "/" },
   { label: "Transactions", icon: List, href: "#transactions" },
   { label: "Impact Score", icon: Leaf, href: "#impact-score" },
   { label: "Insights", icon: Lightbulb, href: "#insights" },
