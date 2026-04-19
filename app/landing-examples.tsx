@@ -1,23 +1,23 @@
-import { Shirt, Utensils, Droplet, AlertTriangle, Leaf } from "lucide-react";
+import { Shirt, Car, Smartphone, AlertTriangle, Leaf } from "lucide-react";
 
 const examples = [
   {
     icon: <Shirt className="h-6 w-6 text-rose-600" />, // Zara T-shirt
-    title: "Zara T-shirt",
+    title: "T-shirt Haul",
     impact: "~2.1kg CO₂, 2,700L water",
     fact: "A single fast fashion tee can use enough water for 30 showers."
   },
   {
-    icon: <Utensils className="h-6 w-6 text-yellow-600" />, // Burger
-    title: "Burger Craving",
-    impact: "~3.3kg CO₂, 1,700L water",
-    fact: "One beef burger = 10x the emissions of a veggie meal."
+    icon: <Car className="h-6 w-6 text-yellow-600" />, // Uber/Cab
+    title: "Uber/Cab Ride",
+    impact: "~1.5kg CO₂ per 10km",
+    fact: "A solo rideshare can emit 50% more than public transit."
   },
   {
-    icon: <Droplet className="h-6 w-6 text-blue-600" />, // Sanitary pad
-    title: "Sanitary Pad",
-    impact: "~0.1kg CO₂, landfill waste",
-    fact: "Over 12 billion pads are thrown away each year, lasting centuries in landfill."
+    icon: <Smartphone className="h-6 w-6 text-blue-600" />, // Smartphone
+    title: "New Smartphone",
+    impact: "~70kg CO₂, rare earth mining",
+    fact: "Making one phone uses more energy than charging it for 10 years."
   },
   {
     icon: <AlertTriangle className="h-6 w-6 text-orange-600" />, // Food delivery
