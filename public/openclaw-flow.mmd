@@ -1,0 +1,53 @@
+%%{ init: { "theme": "base", "themeVariables": { "fontSize": "20px", "fontFamily": "Inter, sans-serif", "fontWeight": "700", "lineColor": "#92400e" } } }%%
+flowchart TD
+
+    classDef trigger  fill:#fef3c7,stroke:#d97706,color:#78350f,font-weight:bold
+    classDef event    fill:#ffedd5,stroke:#ea580c,color:#7c2d12,font-weight:bold
+    classDef workflow fill:#fef9c3,stroke:#ca8a04,color:#713f12,font-weight:bold
+    classDef store    fill:#f1f5f9,stroke:#475569,color:#1e293b,font-weight:bold
+    classDef notif    fill:#d1fae5,stroke:#059669,color:#064e3b,font-weight:bold
+    classDef cron     fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+
+    Upload["Upload API<br/>POST /api/upload"]:::trigger
+    Cron["Vercel Cron<br/>POST /api/cron<br/>Mon 09:00 UTC<br/>Bearer auth"]:::cron
+
+    subgraph CHAIN["Chained Trigger"]
+        E1["transactions_uploaded"]:::event
+        E2["score_calculated"]:::event
+        E3["insights_generated"]:::event
+        E4["score_improved<br/>(if score rose)"]:::event
+    end
+
+    subgraph WORKFLOWS["Registered Workflows"]
+        WF1["autoInsightOnUpload<br/>buildRagContext<br/>generateInsights<br/>cache to store"]:::workflow
+        WF2["highImpactAlert<br/>threshold check<br/>push notification"]:::workflow
+        WF3["weeklyReport<br/>aggregate spend<br/>push digest"]:::workflow
+        WF4["scoreImprovedCelebration<br/>push celebration"]:::workflow
+    end
+
+    subgraph STORE["In-Process Store"]
+        NotifStore["Notification Store<br/>HMR-safe"]:::store
+        UserStore["User Store<br/>insights · score"]:::store
+    end
+
+    subgraph NOTIFICATIONS["In-App"]
+        Bell["Notification Bell<br/>polls every 60s"]:::notif
+        Types["3 Types<br/>Weekly Report<br/>Score Improved<br/>High-Impact Alert"]:::notif
+    end
+
+    Upload --> E1
+    E1 --> E2 --> E3 --> E4
+
+    E1 --> WF1
+    E2 --> WF2
+    E3 --> WF3
+    E4 --> WF4
+    Cron --> WF3
+
+    WF1 --> UserStore
+    WF2 --> NotifStore
+    WF3 --> NotifStore
+    WF4 --> NotifStore
+
+    NotifStore --> Bell
+    Bell --> Types

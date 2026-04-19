@@ -1,154 +1,84 @@
+%%{ init: { "theme": "base", "themeVariables": { "fontSize": "20px", "fontFamily": "Inter, sans-serif", "fontWeight": "700", "lineColor": "#6b7280" } } }%%
 flowchart TD
-    subgraph USER["User Layer"]
-        User["🧑 User (Browser)"]
-        LandingPage["🏠 Landing Page\nHero | Features | How It Works\nTry Sample Data CTA | Download CSV"]
-        UploadUI["📂 Upload Panel\nCSV + PDF · AU format\nDrag & Drop + Format hints"]
+
+    classDef user     fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,font-weight:bold
+    classDef auth     fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+    classDef ingest   fill:#ffedd5,stroke:#ea580c,color:#7c2d12,font-weight:bold
+    classDef store    fill:#f1f5f9,stroke:#475569,color:#1e293b,font-weight:bold
+    classDef pipeline fill:#ccfbf1,stroke:#0d9488,color:#134e4a,font-weight:bold
+    classDef events   fill:#fef9c3,stroke:#ca8a04,color:#713f12,font-weight:bold
+    classDef ui       fill:#d1fae5,stroke:#059669,color:#064e3b,font-weight:bold
+
+    subgraph USER["User"]
+        Landing["Landing Page"]
+        Upload["Upload Panel<br/>CSV · PDF"]
     end
 
-    subgraph AUTH["Auth & Identity"]
-        Auth0["🔐 Auth0\n(Identity, Scopes & Memory Boundary)\nMFA · Rolling Sessions · Post-Login Action"]
-        FGA["FGA Rule Table\nresource + action → required scope\nlib/auth/fga.ts"]
-        AuthScope["Agent Scope Enforcer\nread:transactions | write:insights\nupdate:score | read:behavior_patterns\nwrite:agent_memory"]
+    subgraph AUTH["Auth0"]
+        Auth0["Auth0<br/>MFA · Sessions"]
+        FGA["FGA<br/>action → scope"]
     end
 
-    subgraph INGEST["Data Ingestion"]
-        UploadAPI["POST /api/upload\n(Auth required · persists to store)"]
-        PreviewAPI["POST /api/upload/preview\n(Anonymous · no persistence\nRules-only · Try Sample Data)"]
-        PDFParse["AU PDF Parser\n(pdf-parse)\nDD Mon YYYY date pattern\nDebit/Credit extraction"]
-        CSVParse["CSV Parser\n(papaparse)\nDate | Transaction | Debit | Credit | Balance\nAU bank statement format"]
-        RuleClassify["Rule Classifier\nAU Vendor regex matching\nWoolworths | Coles | TransportForNSW\nChemist Warehouse | Didi | Puma…"]
-        AICategorize["AI Reclassifier\n(OpenAI gpt-4o-mini / Gemini fallback)\nReclassifies 'Other' merchants\nFire-and-forget · key optional"]
-        CategoryEngine["Categorization Engine\nFast Fashion | Grocery | Food Delivery\nHygiene | Transport | Electronics | Other\nimpact: RED | YELLOW | GREEN"]
+    subgraph INGEST["Ingestion"]
+        Parser["File Parser<br/>pdf · papaparse"]
+        Classify["Categoriser<br/>Rules + AI"]
     end
 
-    subgraph STORE["In-Memory Store"]
-        UserStore["User Memory Store\n(keyed by Auth0 sub)\nTransactions | Score | Chat History\nMemory Timeline | Insight Cache"]
+    subgraph STORE["Store"]
+        UserStore["User Store<br/>Transactions · Score"]
+        AgentMemory["Agent Memory<br/>file-backed<br/>30-day expiry"]
     end
 
     subgraph PIPELINE["Agent Pipeline"]
-        RuleEngine["Rule Engine\nclassifyAndScore()"]
-        ScoringEngine["Scoring Engine\ncalculateImpactScore()\nimpactScore | highImpactCount | weeklyTrend"]
-        PatternEngine["Pattern Engine\ndetectPatterns()\nweekendSpendingSpike | fastFashionBurst\ncategoryConcentration | weekdayWeekendImbalance"]
-        InsightGen["Insight Generator\ngenerateAgentInsights()\n⚠️ WARNING | ✅ POSITIVE | ℹ️ NEUTRAL"]
-        AgentMemory["Agent Memory (file-backed)\ngetAgentMemory() | updateAgentMemory()\n.agent-memory/<fnv1a-hash>.json · 30-day expiry"]
-        NudgeEngine["Proactive Nudges\ngenerateNudges()\nWARNING | TIP | CELEBRATION"]
-        SimEngine["What-If Simulator\nsimulateScenario()\nSwap category → project score delta"]
-        Sanitizer["Privacy Sanitizer\nsanitizeForLog() · pseudonymize()\nFNV-1a hash · PII redaction"]
+        Scoring["Scoring Engine"]
+        Patterns["Pattern Detector"]
+        Insights["Insight Generator<br/>WARNING · POSITIVE<br/>NEUTRAL"]
+        RAG["RAG Layer<br/>context + prompts"]
     end
 
-    subgraph RAG["RAG Layer"]
-        CtxBuilder["Context Builder\nbuildRagContext()\ntop_categories | spend_summary\npattern_signals | memory_summary"]
-        Retrieval["Retrieval\nretrieveRelevant()\nVector similarity over past insights"]
-        PromptTemplate["Prompt Template\nbuildSystemPrompt()\nPersonalised grounding for chat"]
+    subgraph OPENCLAW["OpenClaw Events"]
+        OCTrigger["Chained Trigger<br/>uploaded → scored<br/>→ insights → improved"]
+        WF1["autoInsightOnUpload"]
+        WF2["highImpactAlert"]
+        WF3["weeklyReport<br/>Vercel Cron<br/>Mon 09:00 UTC"]
+        WF4["scoreImprovedCelebration"]
     end
 
-    subgraph APIS["API Routes"]
-        InsightsAPI["GET /api/agent-insights\nFull pipeline · returns summary\nscore | breakdown | insights\nrecommendations | memory"]
-        ScoreAPI["GET /api/score\nimpactScore | highImpactCount | weeklyTrend"]
-        TxAPI["GET /api/transactions\nReturns stored transactions"]
-        ChatAPI["POST /api/agent-chat\nMulti-turn · what-if · doc Q&A\nRAG-grounded conversational agent"]
-        MemoryAPI["GET /api/agent-memory\nMemory timeline for user"]
-        SimAPI["POST /api/simulate\nRuns what-if scenario · returns delta score"]
-        NotifAPI["GET /api/notifications\nPOST /api/notifications (mark read)\nIn-app notification feed"]
+    subgraph UI["Dashboard"]
+        Shell["Dashboard Shell<br/>Score · Transactions<br/>Insights"]
+        ChatPanel["Agent Chat"]
+        SimUI["What-If Simulator"]
+        NotifBell["Notification Bell<br/>polls every 60s"]
     end
 
-    subgraph OPENCLAW["OpenClaw Event Bus"]
-        OCTrigger["openClawChainedTrigger\nChained pipeline:\ntransactions_uploaded → score_calculated\n→ insights_generated → score_improved"]
-        OCRegistry["OpenClaw Registry\nRegisterWorkflow() | emit()"]
-        WF1["autoInsightOnUpload\nBuildRagContext → generateInsights\nCache to store on every upload"]
-        WF2["highImpactAlert\nScore threshold check · push notification\nTop offending categories"]
-        WF3["weeklyReport\nAggregate totalSpend | topCategories\nPush weekly notification"]
-        WF4["scoreImprovedCelebration\nscore_improved event\nPush celebration notification"]
-        CronAPI["POST /api/cron/weekly-report\nVercel Cron · Mon 09:00 UTC\nBEARER CRON_SECRET auth"]
-    end
+    class Landing,Upload user
+    class Auth0,FGA auth
+    class Parser,Classify ingest
+    class UserStore,AgentMemory store
+    class Scoring,Patterns,Insights,RAG pipeline
+    class OCTrigger,WF1,WF2,WF3,WF4 events
+    class Shell,ChatPanel,SimUI,NotifBell ui
 
-    subgraph UI["Frontend (Next.js 15 App Router)"]
-        Dashboard["Dashboard Shell\nSummaryCards | TransactionTable\nInsightPanel | AgentChatPanel\nMemoryEvolutionPanel | WhatIfSimulator"]
-        NotifBell["Notification Bell\nPolls /api/notifications every 60s\nUnread badge · dropdown feed"]
-        InsightUI["Insight Panel\nSummary | Warnings | Positives\nRecommendations | Behavior Patterns"]
-        TxTable["Transaction Table\nDate | Merchant | Amount\nCategory | Impact Badge"]
-        ChatPanel["Agent Chat Panel\nRAG-grounded Q&A\nPersonalised sustainability advice"]
-        MemoryPanel["Memory Evolution Panel\nTimeline of learned patterns"]
-        SimulatorUI["What-If Simulator\nSwap categories · see score impact"]
-    end
-
-    %% User flows
-    User --> LandingPage
-    LandingPage -->|"Try Sample Data (no login)"| PreviewAPI
-    LandingPage -->|"Download sample CSV"| User
-    LandingPage -->|"Try it out →"| Auth0
+    Landing --> Auth0
     Auth0 --> FGA
-    FGA --> AuthScope
-    AuthScope --> UploadAPI
-    AuthScope --> InsightsAPI
-    AuthScope --> ScoreAPI
-    AuthScope --> TxAPI
-    AuthScope --> ChatAPI
-    AuthScope --> SimAPI
+    FGA --> Upload
+    Landing --> Parser
 
-    %% Authenticated upload
-    UploadUI --> UploadAPI
-    UploadAPI --> PDFParse
-    UploadAPI --> CSVParse
-    PDFParse --> RuleClassify
-    CSVParse --> RuleClassify
-    RuleClassify --> AICategorize
-    AICategorize --> CategoryEngine
-    CategoryEngine --> UserStore
-    UploadAPI --> OCTrigger
+    Upload --> Parser
+    Parser --> Classify
+    Classify --> UserStore
+    Upload --> OCTrigger
 
-    %% Anonymous preview
-    PreviewAPI --> PDFParse
-    PreviewAPI --> CSVParse
+    OCTrigger --> WF1 & WF2 & WF3 & WF4
+    WF1 & WF2 & WF3 & WF4 --> UserStore
 
-    %% OpenClaw bus
-    OCTrigger --> OCRegistry
-    CronAPI --> OCTrigger
-    OCRegistry --> WF1
-    OCRegistry --> WF2
-    OCRegistry --> WF3
-    OCRegistry --> WF4
-    WF1 --> UserStore
-    WF2 --> UserStore
-    WF3 --> UserStore
-    WF4 --> UserStore
-    WF2 --> Sanitizer
-    WF3 --> Sanitizer
+    UserStore --> Scoring
+    Scoring --> Patterns
+    Patterns --> Insights
+    Insights --> AgentMemory
+    Insights --> RAG
+    RAG --> ChatPanel
 
-    %% Agent pipeline
-    UserStore --> RuleEngine
-    RuleEngine --> ScoringEngine
-    ScoringEngine --> PatternEngine
-    PatternEngine --> InsightGen
-    InsightGen --> AgentMemory
-    InsightGen --> NudgeEngine
-
-    %% RAG
-    UserStore --> CtxBuilder
-    CtxBuilder --> Retrieval
-    Retrieval --> PromptTemplate
-    PromptTemplate --> ChatAPI
-
-    %% APIs read store
-    InsightsAPI --> UserStore
-    InsightsAPI --> RuleEngine
-    ScoreAPI --> UserStore
-    TxAPI --> UserStore
-    SimAPI --> SimEngine
-    SimEngine --> UserStore
-    NotifAPI --> UserStore
-
-    %% UI renders
-    InsightsAPI --> Dashboard
-    ScoreAPI --> Dashboard
-    TxAPI --> Dashboard
-    ChatAPI --> Dashboard
-    MemoryAPI --> Dashboard
-    NotifAPI --> NotifBell
-
-    Dashboard --> InsightUI
-    Dashboard --> TxTable
-    Dashboard --> ChatPanel
-    Dashboard --> MemoryPanel
-    Dashboard --> SimulatorUI
-    Dashboard --> NotifBell
+    UserStore --> Shell
+    Shell --> ChatPanel & SimUI & NotifBell
+    UserStore --> NotifBell

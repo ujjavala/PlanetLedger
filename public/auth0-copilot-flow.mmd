@@ -1,0 +1,48 @@
+%%{ init: { "theme": "base", "themeVariables": { "fontSize": "20px", "fontFamily": "Inter, sans-serif", "fontWeight": "700", "lineColor": "#6b7280" } } }%%
+flowchart TD
+
+    classDef auth     fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+    classDef fga      fill:#ddd6fe,stroke:#6d28d9,color:#2e1065,font-weight:bold
+    classDef scope    fill:#f5f3ff,stroke:#8b5cf6,color:#4c1d95,font-weight:bold
+    classDef action   fill:#fce7f3,stroke:#db2777,color:#831843,font-weight:bold
+    classDef copilot  fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,font-weight:bold
+    classDef output   fill:#d1fae5,stroke:#059669,color:#064e3b,font-weight:bold
+
+    subgraph AUTH0["Auth0"]
+        direction TB
+        MW["Middleware<br/>All routes<br/>protected"]:::auth
+        PostLogin["Post-Login Action<br/>eco_tier claims<br/>org_id injected"]:::action
+        MFA["MFA enforced"]:::action
+        Rolling["Rolling Session<br/>inactivity: 1d<br/>absolute: 7d"]:::auth
+        FGATable["FGA Table<br/>action to scope"]:::fga
+        Scopes["Scopes<br/>read:transactions<br/>write:insights<br/>write:memory"]:::scope
+        Check["canPerform()<br/>every API route"]:::fga
+
+        MW --> PostLogin --> MFA
+        MW --> Rolling
+        MW --> FGATable --> Scopes --> Check
+    end
+
+    subgraph COPILOT["GitHub Copilot"]
+        direction TB
+        Scaffold["Scaffolding<br/>App Router<br/>API routes"]:::copilot
+        Rules["Rules Engine<br/>AU regexes<br/>scoring logic"]:::copilot
+        Pipeline["Agent Pipeline<br/>RAG prompts<br/>insights"]:::copilot
+        Privacy["Privacy<br/>FGA table<br/>PII sanitizer"]:::copilot
+        UI["UI Components<br/>Bell Dashboard<br/>Lucide icons"]:::copilot
+        OC["OpenClaw<br/>Chained pipeline<br/>Vercel Cron"]:::copilot
+
+        Scaffold --> Rules --> Pipeline
+        Privacy --> UI --> OC
+    end
+
+    subgraph RESULT["Outcomes"]
+        direction LR
+        AgentBoundary["Agent scoped<br/>per user"]:::output
+        ZeroHandlers["Auth in<br/>one file"]:::output
+        FastBuild["Full app<br/>one weekend"]:::output
+    end
+
+    Check --> AgentBoundary
+    MW --> ZeroHandlers
+    Pipeline & OC --> FastBuild
