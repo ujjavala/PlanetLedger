@@ -11,8 +11,8 @@ async function extractTextFromPdf(request: Request): Promise<string> {
   const file = formData.get("file");
   if (!file || !(file instanceof Blob)) throw new Error("No PDF file uploaded");
   const buffer = Buffer.from(await file.arrayBuffer());
-  const pdfParse = (await import("pdf-parse")) as any;
-  const data = await pdfParse.default ? pdfParse.default(buffer) : pdfParse(buffer);
+  const pdfParse = (await import("pdf-parse")).default;
+  const data = await pdfParse(buffer);
   return data.text;
 }
 

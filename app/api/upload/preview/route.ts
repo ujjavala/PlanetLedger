@@ -83,9 +83,8 @@ export async function POST(request: Request) {
     if (filename.endsWith(".pdf")) {
       const buffer = Buffer.from(await file.arrayBuffer());
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { PDFParse } = require("pdf-parse");
-      const parser = new PDFParse({ data: buffer });
-      const result = await parser.getText();
+      const pdfParse = require("pdf-parse");
+      const result = await pdfParse(buffer);
       transactions = parsePdfText(result.text);
     } else if (filename.endsWith(".csv")) {
       transactions = parseTransactionsCsv(await file.text());

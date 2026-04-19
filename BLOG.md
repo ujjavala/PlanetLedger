@@ -19,7 +19,7 @@ You upload a CSV or PDF bank statement, and an agent pipeline automatically:
 
 The goal: make the invisible environmental cost of everyday spending visible and actionable — in seconds, not spreadsheets.
 
----
+
 
 ## Demo
 
@@ -27,20 +27,20 @@ The goal: make the invisible environmental cost of everyday spending visible and
 
 Or sign in to upload your own AU bank statement (CSV or PDF) and get a personalised dashboard.
 
----
+
 
 ## Code
 
 {% embed https://github.com/ujjavala/PlanetLedger %}
 
----
+
 
 ## How I Built It
 
 ### Stack
 
 | Layer | Tech |
-|---|---|
+|||
 | Framework | Next.js 15.5 App Router + TypeScript |
 | Auth | **Auth0 v4** (`@auth0/nextjs-auth0`) — middleware-based, zero route handlers |
 | AI / LLM | LangChain + OpenAI `gpt-4o-mini` (primary) / Google Gemini `gemini-1.5-flash` (fallback) |
@@ -52,7 +52,7 @@ Or sign in to upload your own AU bank statement (CSV or PDF) and get a personali
 | Styling | Tailwind CSS v3, Space Grotesk font |
 | Deployment | Vercel |
 
----
+
 
 ### The Agent Pipeline
 
@@ -79,7 +79,7 @@ The insight pipeline fires `{ type: WARNING | POSITIVE | NEUTRAL, message }` str
 
 Agent memory persists per-user (keyed by Auth0 `sub`) and feeds back into the next run — so the agent gets smarter about your habits over time.
 
----
+
 
 ### Auth0 for Agents
 
@@ -112,7 +112,7 @@ A **Post-Login Action** (`lib/auth/actions/post-login.js`) provisions new users 
 
 The public `/demo` page and `/api/upload/preview` are excluded from the middleware matcher, so anyone can try the app without an account.
 
----
+
 
 ### OpenClaw — the Event Bus
 
@@ -121,7 +121,7 @@ OpenClaw is a lightweight in-process event system I built to wire up automation 
 Four workflows register on startup:
 
 | Workflow | Event | What it does |
-|---|---|---|
+||||
 | `autoInsightOnUpload` | `transactions_uploaded` | Runs the full agent pipeline, caches insights |
 | `highImpactAlert` | `high_impact_detected` | Pushes in-app alert notification with top offending categories |
 | `weeklyReport` | `weekly_report` | Full score + insights digest; pushes weekly notification to the bell |
@@ -131,7 +131,7 @@ After an upload, `openClawChainedTrigger()` fires the full sequence: `transactio
 
 Vercel Cron fires `weekly_report` every Monday at 09:00 UTC via `POST /api/cron/weekly-report`, configured in `vercel.json`.
 
----
+
 
 ### The /demo Page
 
@@ -139,7 +139,7 @@ One of the things I'm happiest about: the `/demo` page works with zero auth and 
 
 Premium features (AI chat, What-If Simulator, Memory Timeline) show as blurred locked panels with a lock icon — so visitors can see what they'd get after signing up.
 
----
+
 
 ### Earth Day Design Choices
 
@@ -149,7 +149,7 @@ Premium features (AI chat, What-If Simulator, Memory Timeline) show as blurred l
 - Real AU vendor recognition — the shops people in Australia actually use
 - Every transaction shows its impact colour inline so the pattern is visible at a glance
 
----
+
 
 ### Interesting Engineering Decisions
 
@@ -164,7 +164,7 @@ Agent memory specifically uses a **file-backed store** (`.agent-memory/<fnv1a-ha
 **Why AU sample data, and can other countries use it?**
 The sample data is from an Australian bank (ANZ/CBA-style export), but the parser isn't locked to Australia. Any CSV that follows the `Date / Transaction / Debit / Credit / Balance` column schema will parse correctly — regardless of the bank or country. The vendor categorisation rules are AU-focused right now (Woolworths, Chemist Warehouse, Didi, etc.), but the categorisation layer is just a map — adding UK, US, or EU merchants is additive. The "Why AU only" answer is really: nailing one set of vendors well beats vague coverage of five markets.
 
----
+
 
 ## Going Further During the Weekend
 
@@ -188,7 +188,7 @@ The flat scope check got replaced with a proper FGA rule table (`resource + acti
 **Privacy hardening**
 `email` and merchant names are no longer stored in `UserContext`, agent memory, or RAG prompts — they're PII-adjacent and don't need to be there. OpenClaw workflow logs pseudonymize user IDs via FNV-1a hash (`usr_XXXXXXXX`). A `lib/privacy/sanitizer.ts` module handles all redaction.
 
----
+
 
 ## What's Still Next
 
@@ -212,7 +212,7 @@ The upload panel works on desktop. A mobile-optimised flow — forwarding a bank
 - Carbon offset suggestions matched to your worst categories
 - Peer comparison ("people with similar spending reduced food delivery by X%")- Surface proactive nudges (WARNING / TIP / CELEBRATION) from `lib/agent/nudges.ts` — the engine is built, just needs an API route + UI hook
 
----
+
 
 ## Prize Categories
 
